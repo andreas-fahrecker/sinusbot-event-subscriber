@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "sinusbot-scripting-engine": "^1.0.12"
+  }
+}
