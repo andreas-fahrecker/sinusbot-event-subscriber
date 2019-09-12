@@ -11,6 +11,8 @@ registerPlugin({
         const backend = require('backend');
         const event = require('event');
 
+        const commandPrefix = engine.getCommandPrefix() + 'oss';
+
         const allUid = "ALL";
         const joinEvent = "join";
 
@@ -93,11 +95,11 @@ registerPlugin({
         }
 
         event.on('chat', ev => {
-            const commandPrefix = engine.getCommandPrefix() + 'oss';
             const client = ev.client;
             if (ev.text.startsWith(commandPrefix)) {
                 const cmdRegex = new RegExp("^\\" + commandPrefix + " *");
                 const helpRegex = new RegExp("help");
+                // TODO check if sub exists
                 const subRegex = new RegExp("(sub|subscribe)");
                 //TODO
                 const unsubRegex = new RegExp("(unsub|unsubscribe)");
@@ -152,7 +154,7 @@ registerPlugin({
                             store.set(storeKeySubscriptions, subs);
                             client.chat("You subscribed to the join event of " + nick + ".");
                         } else if (uidHit) {
-                            const uid = uidHit.map(value => value.replace("--uid=\"", "").reduce("\"", ""))[0];
+                            const uid = uidHit.map(value => value.replace("--uid=\"", "").replace("\"", ""))[0];
                             const subscription = new Subscription(client.uid(), joinEvent, uid);
                             const subs = store.get(storeKeySubscriptions);
                             subs.push(subscription);
