@@ -1,0 +1,3 @@
+[submodule "Sinusbot-Command"]
+	path = Sinusbot-Command
+	url = https://github.com/Multivit4min/Sinusbot-Command.git
