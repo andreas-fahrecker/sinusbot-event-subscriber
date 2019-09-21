@@ -1,6 +1,6 @@
 registerPlugin({
         name: 'Sinusbot-Event-Subsriber',
-        version: '0.1',
+        version: '0.3',
         description: '',
         author: 'Andreas Fahrecker <andreasfahrecker@gmail.com>',
         vars: [
@@ -19,27 +19,27 @@ registerPlugin({
         const backend = require('backend');
         const event = require('event');
 
-        function DEBUG(level) {
-            return mode => (...args) => {
-                if (mode) return;
-                engine.log(...args);
-            }
-        }
-
-        DEBUG.VERBOSE = 3;
-        DEBUG.INFO = 2;
-        DEBUG.WARNING = 1;
-        DEBUG.ERROR = 0;
-        const debugLog = DEBUG(parseInt(DEBUG_LEVEL, 10));
-
-        const EventType = {
-            JOIN: "JOIN"
+        const LOG_LEVEL = {
+            VERBOSE: 3,
+            INFO: 2,
+            WARNING: 1,
+            ERROR: 0
         };
 
-        const storeKeySubscriptions = "subscriptions";
+        /**
+         * Logs according to log level
+         * @param {number}level - loglevel of this message
+         * @param {string}message - message to log
+         */
+        function log(level, message) {
+            if (level <= DEBUG_LEVEL)
+                engine.log(message);
+        }
 
-        const allUid = "ALL";
-        const joinEvent = "join";
+        const EventType = {
+            JOIN: "JOIN",
+            LEAVE: "LEAVE"
+        };
 
         class SubscriptionStore {
             static storeKey() {
@@ -47,38 +47,37 @@ registerPlugin({
             }
 
             constructor() {
-                let subscriptions = store.get(SubscriptionStore.storeKey());
-                if (subscriptions === undefined) {
-                    subscriptions = [];
-                    debugLog(DEBUG.INFO)("INFO: Created new Subscription Array because the was none found.");
-                }
-                this._subscriptions = subscriptions;
-                debugLog(DEBUG.VERBOSE)("Created new SubscriptionStore.");
+                this.updateFromStore();
+                this.saveToStore();
+                log(LOG_LEVEL.VERBOSE, "VERBOSE: Created new SubscriptionStore.");
             }
 
             /**
              * Returns if a subscription is already saved
              * @param {Subscription}subscription
+             * @returns {boolean} returns true if the subscription is already saved.
              */
             hasSubscription(subscription) {
                 if (!subscription instanceof Subscription) throw new Error("Expected a Subscription");
-                return this.getSubscriptions().filter(value => value.equals(subscription)).length < 1;
+                return this.getSubscriptions().filter(value => value.equals(subscription)).length > 0;
             }
 
             /**
              * Adds a subscription to the storage.
              * @param {Subscription} subscription - the subscription which should be stored.
-             * @returns {Subscription} returns the added subscription or undefined if it already exists
+             * @returns {Subscription} returns the added subscription or undefined if it already exists.
              */
             addSubscription(subscription) {
                 if (!subscription instanceof Subscription) throw new Error("Expected a Subscription");
                 if (this.hasSubscription(subscription)) {
+                    log(LOG_LEVEL.WARNING, "WARNING: Could not create Subscription: " + subscription.getSubscriptionString() + " because it already exists.");
                     return undefined;
                 }
                 this.updateFromStore();
                 this._subscriptions.push(subscription);
+                log(LOG_LEVEL.VERBOSE, "VERBOSE: Added Subscription: " + subscription.getSubscriptionString() + " to SubscriptionStore.");
                 this.saveToStore();
-                debugLog(DEBUG.INFO)("INFO: Saved and Created new Subscription: '" + subscription.getSubscriptionString() + "'");
+                log(LOG_LEVEL.INFO, "INFO: Saved and Created new Subscription: '" + subscription.getSubscriptionString() + "'");
                 return subscription;
             }
 
@@ -88,41 +87,70 @@ registerPlugin({
              */
             getSubscriptions() {
                 this.updateFromStore();
-                return this._subscriptions.map(value => value = new Subscription(value));
+                return this._subscriptions.map(value => new Subscription(value));
+            }
+
+            /**
+             * Returns all Subscriptions of a user.
+             * @param {string}uid - the uid of the subscriber
+             * @returns {Subscription[]}
+             */
+            getSubscriptionsOfSubscriber(uid) {
+                return this.getSubscriptions().filter(value => value.getSubscriberUId() === uid);
+            }
+
+            /**
+             * Returns all Subscription for a target uid (including all subscriptions)
+             * @param {string}uid - the target uid.
+             * @returns {Subscription[]}
+             */
+            getSubscriptionsForTarget(uid) {
+                return this.getSubscriptions().filter(value => value.getTargetUId() === uid || value.getTargetUId() === Subscription.allUId());
             }
 
             /**
              * Removed a subscription from the storage.
              * @param {Subscription}subscription - the subscription which should be removed.
+             * @returns {Subscription} returns the removed subscription or undefined if it doesn't exist.
              */
             deleteSubscription(subscription) {
                 if (!subscription instanceof Subscription) throw new Error("Expected a Subscription");
                 if (!this.hasSubscription(subscription)) {
-                    debugLog(DEBUG.WARNING)("WARNING: trying to delete a non existing subscription!");
-                    debugLog(DEBUG.WARNING)("WARNING: Sinusbot-Event-Subscriber may not work as expected!");
+                    log(LOG_LEVEL.WARNING, `WARNING: Could not remove Subscription: ${subscription.getSubscriptionString()} because it doesn't exist.`);
+                    return undefined;
                 }
                 this._subscriptions = this.getSubscriptions().filter(value => !value.equals(subscription));
-                debugLog(DEBUG.VERBOSE)("VERBOSE: Removed Subscription: '" + subscription.getSubscriptionString() + "' from SubscriptionStore.");
+                log(LOG_LEVEL.VERBOSE, `VERBOSE: Removed Subscription: '${subscription.getSubscriptionString()}' from SubscriptionStore.`);
                 this.saveToStore();
-                debugLog(DEBUG.INFO)("INFO: Removed Subscription: '" + subscription.getSubscriptionString() + "' from Storage.");
+                log(LOG_LEVEL.INFO, `INFO: Removed Subscription: '${subscription.getSubscriptionString()}' from Storage.`);
+                return subscription;
             }
 
             updateFromStore() {
                 this._subscriptions = store.get(SubscriptionStore.storeKey());
-                debugLog(DEBUG.VERBOSE)("VERBOSE: Updated SubscriptionStore.");
+                if (this._subscriptions === undefined) {
+                    this._subscriptions = [];
+                    log(LOG_LEVEL.INFO, "INFO: Created new Subscription Array because the was none found.");
+                } else {
+                    log(LOG_LEVEL.VERBOSE, "VERBOSE: Updated SubscriptionStore.");
+                }
             }
 
             saveToStore() {
                 store.set(SubscriptionStore.storeKey(), this._subscriptions);
-                debugLog(DEBUG.VERBOSE)("VERBOSE: Saved SubscriptionStore.");
+                log(LOG_LEVEL.VERBOSE, "VERBOSE: Saved SubscriptionStore.");
             }
         }
 
         class Subscription {
+            static allUId() {
+                return "ALL";
+            }
+
             static validateUId(uid) {
                 if (typeof uid !== "string") throw new Error("Expected a string as unique id!");
-                if (uid.length === 27) throw new Error("Unique id should have a length of 27!");
-                if (!(/\S{27}=/).test(uid)) throw new Error("Unique id " + name + " is not valid!");
+                if (uid.length !== 28 && uid !== Subscription.allUId()) throw new Error("Unique id should have a length of 28!");
+                if (!(/\S{27}=/).test(uid) && uid !== Subscription.allUId()) throw new Error("Unique id " + name + " is not valid!");
                 return true;
             }
 
@@ -153,7 +181,7 @@ registerPlugin({
             }
 
             getSubscriptionString() {
-                return this.getSubscriberUId() + ":" + this.getEventType() + ":" + this.getTargetUId();
+                return this.getSubscriberUId() + " | " + this.getEventType() + " | " + this.getTargetUId();
             }
 
             equals(other) {
@@ -204,6 +232,58 @@ registerPlugin({
             uidToNickname: (uid) => {
                 const user = backend.getClients().filter(u => u.uid() === uid);
                 return user.length > 0 ? user[0].name() : undefined;
+            },
+            /**
+             * Add or Removes a subscription from the storage and replies to the client
+             * @param client
+             * @param args
+             * @param reply
+             * @param {boolean}sub
+             */
+            addOrRemoveSubscription: (client, args, reply, sub) => {
+                let uid, nickname;
+                if (args.targetUId !== undefined && args.targetUId !== "" && args.targetNickname !== undefined && args.targetNickname !== "") {
+                    reply("You should provide a targetNickname or a targetUId.");
+                    reply("You can use a Nickname when your target is online or the uid if your target is offline.");
+                }
+                if ((args.targetUId === undefined || args.targetUId === "") && args.targetNickname !== undefined && args.targetNickname !== "") {
+                    uid = args.targetNickname !== Subscription.allUId() ? HelperFunctions.nicknameToUId(args.targetNickname) : Subscription.allUId();
+                    nickname = args.targetNickname;
+                }
+                if (args.targetUId !== undefined && args.targetUId !== "" && (args.targetNickname === undefined || args.targetNickname === "")) {
+                    uid = args.targetUId;
+                    nickname = HelperFunctions.uidToNickname(uid);
+                }
+                if (uid !== undefined) {
+                    let subscription = new SubscriptionBuilder().setSubscriberUId(client.uid()).setEvent(args.event.toUpperCase()).setTargetUId(uid).build();
+                    subscription = sub ? subscriptionStore.addSubscription(subscription) : subscriptionStore.deleteSubscription(subscription);
+                    if (subscription !== undefined) {
+                        const subTxt = `You just ${sub ? "" : "un"}subscribed to the ${subscription.getEventType()} event of ${(nickname !== undefined && nickname !== "") ? nickname : uid}`;
+                        reply(subTxt);
+                    } else {
+                        reply(sub ? "You couldn't make this subscription, maybe there was an error or you already have this subscription." : "You couldn't remove this subscription, maybe you aren't subscribed.");
+                    }
+                }
+            },
+            /**
+             * Messages all Subscribers of an event.
+             * @param {Client}targetClient - the target client.
+             * @param {string}eventType - the type of the event.
+             * @param {string}message - the message the subscriber should receive.
+             */
+            messageSubscribers: (targetClient, eventType, message) => {
+                const subscriptions = subscriptionStore.getSubscriptionsForTarget(targetClient.uid())
+                    .filter(value => value.getEventType() === eventType);
+                const messagedSubscribers = [];
+                subscriptions.forEach(value => {
+                    if (!messagedSubscribers.includes(value.getSubscriberUId())) {
+                        const subscriber = backend.getClientByUID(value.getSubscriberUId());
+                        if (subscriber != null) {
+                            subscriber.chat(message);
+                            messagedSubscribers.push(subscriber.uid());
+                        }
+                    }
+                });
             }
         };
 
@@ -214,64 +294,56 @@ registerPlugin({
             if (!command) throw new Error("command.js library not found! Please download command.js and enable it to be able to use this script!");
 
             const sesCommand = command.createCommandGroup("ses")
-                .help("This script allows users to subscribe to the online status of another user.");
+                .help("This script allows users to subscribe to events.");
 
-            sesCommand.addCommand("subscriptions")
-                .alias("subs")
-                .help("Shows all your subscription.")
+            sesCommand.addCommand("subs")
+                .help("Shows your subscriptions.")
+                .manual("Shows your subscriptions.")
+                .manual("You can filter for event types.")
+                .manual(`Possible events are: [B]${Object.keys(EventType).map(value => value.toLowerCase())}[/B]`)
+                .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())).optional(undefined))
                 .exec((client, args, reply) => {
                     let subsTxT = "Nick / Uid | EventType\n-------------------------\n";
-                    subscriptionStore.getSubscriptions().forEach(value => {
-                        if (value.getSubscriberUId() === client.uid()) {
+                    const subscriptions = args.event === undefined ?
+                        subscriptionStore.getSubscriptionsOfSubscriber(client.uid()) :
+                        subscriptionStore.getSubscriptionsOfSubscriber(client.uid()).filter(value => value.getEventType() === args.event.toUpperCase());
+                    if (subscriptions.length > 0) {
+                        subscriptions.forEach(value => {
                             const nick = HelperFunctions.uidToNickname(value.getTargetUId());
                             subsTxT += (nick ? nick : value.getTargetUId()) + " | " + value.getEventType() + "\n"
-                        }
-                    });
-                    reply("Subscriptions\n" + subsTxT);
+                        });
+                        reply("Subscriptions\n" + subsTxT);
+                    } else {
+                        reply("Sorry you currently don't have any subscriptions.");
+                    }
                 });
 
-            sesCommand.addCommand("subscribe")
-                .alias("sub")
-                .help("Lets you subscribe to an event. " + Object.keys(EventType))
+            sesCommand.addCommand("sub")
+                .help("Lets you subscribe to an event.")
+                .manual("Lets you subscribe to an event.")
+                .manual(`Possible events are: [B]${Object.keys(EventType).map(value => value.toLowerCase())}[/B]`)
+                .manual("You have to either provide a target [B]nickname[/B] or [B]uid[/B].")
+                .manual("If you want to subscribe to all events of that type, you can provide [B]ALL[/B] as the targetNickname.")
+                .manual("You can use the nickname only if the target is online")
                 .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())))
                 .addArgument(args => args.string.setName("targetUId").match(/\S{27}=/).optional(undefined))
                 .addArgument(args => args.string.setName("targetNickname").optional(undefined))
                 .exec((client, args, reply) => {
-                    if (args.event === EventType.JOIN.toLowerCase()) {
-                        let uid, nickname;
-                        if (args.targetUId !== undefined && args.targetUId !== "" && args.targetNickname !== undefined && args.targetNickname !== "") {
-                            reply("You should provide a targetNickname or a targetUId.");
-                            reply("You can use a Nickname when your target is online or the uid if your target is offline.");
-                        }
-                        if ((args.targetUId === undefined || args.targetUId === "") && args.targetNickname !== undefined && args.targetNickname !== "") {
-                            uid = HelperFunctions.nicknameToUId(args.targetNickname);
-                            nickname = args.targetNickname;
-                        }
-                        if (args.targetUId !== undefined && args.targetUId !== "" && (args.targetNickname === undefined || args.targetNickname === "")) {
-                            uid = args.targetUId;
-                            nickname = HelperFunctions.uidToNickname(uid);
-                        }
-                        if (uid !== undefined) {
-                            const subscription = subscriptionStore.addSubscription(new SubscriptionBuilder().setEvent(EventType.JOIN).setSubscriberUId(client.uid()).setTargetUId(uid).build());
-                            if (subscription !== undefined) {
-                                const subTxt = "You just subscribed to the " + EventType.JOIN + " event of " + ((nickname !== undefined && nickname !== "") ? nickname : uid);
-                                reply(subTxt);
-                                reply(JSON.stringify(subscription));
-                            } else {
-                                reply("You couldn't make this subscription, maybe there was an error or you already have this subscription");
-                            }
-                        }
-                    }
+                    HelperFunctions.addOrRemoveSubscription(client, args, reply, true);
                 });
 
-            sesCommand.addCommand("unsubscribe")
-                .alias("unsub")
+            sesCommand.addCommand("unsub")
                 .help("Lets you unsubscribe from an event.")
-                .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType)))
+                .manual("Lets you unsubscribe from an event.")
+                .manual(`Possible events are: [B]${Object.keys(EventType).map(value => value.toLowerCase())}[/B]`)
+                .manual("You have to either provide a target [B]nickname[/B] or [B]uid[/B].")
+                .manual("If you want to subscribe to all events of that type, you can provide [B]ALL[/B] as the targetNickname.")
+                .manual("You can use the nickname only if the target is online")
+                .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())))
                 .addArgument(args => args.string.setName("targetUId").match(/\S{27}=/).optional(undefined))
                 .addArgument(args => args.string.setName("targetNickname").optional(undefined))
                 .exec((client, args, reply) => {
-                    reply(args);
+                    HelperFunctions.addOrRemoveSubscription(client, args, reply, false);
                 });
 
             sesCommand.addCommand("users")
@@ -280,7 +352,6 @@ registerPlugin({
                     let usersTxT = "Nickname | Uid\n-------------------------\n";
                     const users = backend.getClients();
                     users.forEach(user => {
-                        debugLog(DEBUG.VERBOSE)(user);
                         usersTxT += user.name() + " | " + user.uid() + "\n"
                     });
                     reply(usersTxT);
@@ -289,24 +360,12 @@ registerPlugin({
 
         event.on('clientMove', function (ev) {
             if (ev.fromChannel == null) {
-                const joinedClient = ev.client;
-                const subs = store.get(storeKeySubscriptions);
-                const messagedSubscribers = [];
-                subs.filter(sub => sub.uid === allUid).forEach(sub => {
-                    const subscriber = backend.getClientByID(sub.subscriber);
-                    if (subscriber != null) {
-                        subscriber.chat(joinedClient.nick() + " just joined the server.");
-                        messagedSubscribers.push(subscriber.uid());
-                    }
-                });
-                subs.filter(sub => !messagedSubscribers.includes(sub.uid)).forEach(sub => {
-                    if ((sub.uid === joinedClient.uid()) && sub.eventType === joinEvent) {
-                        const subscriber = backend.getClientByUID(sub.subscriber);
-                        if (subscriber != null) {
-                            subscriber.chat(joinedClient.nick() + " just joined the server.");
-                        }
-                    }
-                });
+                log(LOG_LEVEL.VERBOSE, "VERBOSE: A client joined the server");
+                HelperFunctions.messageSubscribers(ev.client, EventType.JOIN, `${ev.client.name()} just joined the server.`);
+            }
+            if (ev.toChannel == null) {
+                log(LOG_LEVEL.VERBOSE, "VERBOSE: A client left the server");
+                HelperFunctions.messageSubscribers(ev.client, EventType.LEAVE, `${ev.client.name()} just left the server.`);
             }
         });
     }
