@@ -1,0 +1,1 @@
+Sinusbot-Command/command.js
