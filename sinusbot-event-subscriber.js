@@ -38,7 +38,8 @@ registerPlugin({
 
         const EventType = {
             JOIN: "JOIN",
-            LEAVE: "LEAVE"
+            LEAVE: "LEAVE",
+            ALL: "ALL"
         };
 
         class SubscriptionStore {
@@ -210,6 +211,8 @@ registerPlugin({
             }
 
             build() {
+                if (!Subscription.validateUId(this._subscriberUId) && !Subscription.validateEvent(this._eventType) && !Subscription.validateUId(this._targetUId)) throw new Error("The subscriber uid, event and the target uid have to be set");
+                if (this._subscriberUId === this._targetUId) throw new Error("The target uid cannot be the same uid as the subscriber uid.");
                 return new Subscription(this);
             }
         }
@@ -255,13 +258,18 @@ registerPlugin({
                     nickname = HelperFunctions.uidToNickname(uid);
                 }
                 if (uid !== undefined) {
-                    let subscription = new SubscriptionBuilder().setSubscriberUId(client.uid()).setEvent(args.event.toUpperCase()).setTargetUId(uid).build();
-                    subscription = sub ? subscriptionStore.addSubscription(subscription) : subscriptionStore.deleteSubscription(subscription);
-                    if (subscription !== undefined) {
-                        const subTxt = `You just ${sub ? "" : "un"}subscribed to the ${subscription.getEventType()} event of ${(nickname !== undefined && nickname !== "") ? nickname : uid}`;
-                        reply(subTxt);
-                    } else {
-                        reply(sub ? "You couldn't make this subscription, maybe there was an error or you already have this subscription." : "You couldn't remove this subscription, maybe you aren't subscribed.");
+                    try {
+                        let subscription = new SubscriptionBuilder().setSubscriberUId(client.uid()).setEvent(args.event.toUpperCase()).setTargetUId(uid).build();
+                        subscription = sub ? subscriptionStore.addSubscription(subscription) : subscriptionStore.deleteSubscription(subscription);
+                        if (subscription !== undefined) {
+                            const subTxt = `You just ${sub ? "" : "un"}subscribed to the ${subscription.getEventType()} event of ${(nickname !== undefined && nickname !== "") ? nickname : uid}`;
+                            reply(subTxt);
+                        } else {
+                            reply(sub ? "You couldn't make this subscription, maybe there was an error or you already have this subscription." : "You couldn't remove this subscription, maybe you aren't subscribed.");
+                        }
+                    } catch (e) {
+                        log(LOG_LEVEL.ERROR, e.message);
+                        reply("Sorry an Error occurred: " + e.message);
                     }
                 }
             },
@@ -273,7 +281,7 @@ registerPlugin({
              */
             messageSubscribers: (targetClient, eventType, message) => {
                 const subscriptions = subscriptionStore.getSubscriptionsForTarget(targetClient.uid())
-                    .filter(value => value.getEventType() === eventType);
+                    .filter(value => value.getEventType() === eventType || value.getEventType() === EventType.ALL);
                 const messagedSubscribers = [];
                 subscriptions.forEach(value => {
                     if (!messagedSubscribers.includes(value.getSubscriberUId())) {
