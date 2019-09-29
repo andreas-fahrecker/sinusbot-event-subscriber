@@ -1,6 +1,6 @@
 registerPlugin({
         name: 'Sinusbot-Event-Subsriber',
-        version: '0.3',
+        version: '0.4',
         description: '',
         author: 'Andreas Fahrecker <andreasfahrecker@gmail.com>',
         vars: [
@@ -39,6 +39,8 @@ registerPlugin({
         const EventType = {
             JOIN: "JOIN",
             LEAVE: "LEAVE",
+            AWAY: "AWAY",
+            BACK: "BACK",
             ALL: "ALL"
         };
 
@@ -78,7 +80,7 @@ registerPlugin({
                 this._subscriptions.push(subscription);
                 log(LOG_LEVEL.VERBOSE, "VERBOSE: Added Subscription: " + subscription.getSubscriptionString() + " to SubscriptionStore.");
                 this.saveToStore();
-                log(LOG_LEVEL.INFO, "INFO: Saved and Created new Subscription: '" + subscription.getSubscriptionString() + "'");
+                log(LOG_LEVEL.INFO, "INFO: Saved and Created new Subscription: '" + subscription.getSubscriptionString() + "'.");
                 return subscription;
             }
 
@@ -314,7 +316,7 @@ registerPlugin({
                     let subsTxT = "Nick / Uid | EventType\n-------------------------\n";
                     const subscriptions = args.event === undefined ?
                         subscriptionStore.getSubscriptionsOfSubscriber(client.uid()) :
-                        subscriptionStore.getSubscriptionsOfSubscriber(client.uid()).filter(value => value.getEventType() === args.event.toUpperCase());
+                        subscriptionStore.getSubscriptionsOfSubscriber(client.uid()).filter(value => value.getEventType() === args.event.toUpperCase() || value.getEventType() === EventType.ALL);
                     if (subscriptions.length > 0) {
                         subscriptions.forEach(value => {
                             const nick = HelperFunctions.uidToNickname(value.getTargetUId());
@@ -368,13 +370,23 @@ registerPlugin({
 
         event.on('clientMove', function (ev) {
             if (ev.fromChannel == null) {
-                log(LOG_LEVEL.VERBOSE, "VERBOSE: A client joined the server");
+                log(LOG_LEVEL.VERBOSE, "VERBOSE: A client joined the server.");
                 HelperFunctions.messageSubscribers(ev.client, EventType.JOIN, `${ev.client.name()} just joined the server.`);
             }
             if (ev.toChannel == null) {
-                log(LOG_LEVEL.VERBOSE, "VERBOSE: A client left the server");
+                log(LOG_LEVEL.VERBOSE, "VERBOSE: A client left the server.");
                 HelperFunctions.messageSubscribers(ev.client, EventType.LEAVE, `${ev.client.name()} just left the server.`);
             }
+        });
+
+        event.on('clientAway', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client went away.");
+            HelperFunctions.messageSubscribers(ev, EventType.AWAY, `${ev.name()} went away.`);
+        });
+
+        event.on('clientBack', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client got back.");
+            HelperFunctions.messageSubscribers(ev, EventType.BACK, `${ev.name()} got back.`);
         });
     }
 )
