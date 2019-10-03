@@ -10,22 +10,22 @@ With these commands a user can subscribe to a collection of events and be notifi
 - After you have installed the script you can set the log level of the script (optional).
 - Then you have to set the server group id's of the bot server groups.
 
-#Commands
+# Commands
 - !ses subs [event] - Shows your subscriptions.
 - !ses sub <event> [targetUId] [targetNickname] - Lets you subscribe to an event.
 - !ses unsub <event> [targetUId] [targetNickname] - Lets you unsubscribe from an event.
 - !ses users - Shows all online users.
 
-#Usage
+# Usage
 
-##Subs
+## Subs
 - !ses subs [event]
 
 Shows your subscriptions. 
 You can filter for event types. 
 Possible events are: **join**,**leave**,**away**,**back**,**mute**,**deaf**,**track**,**all** 
 
-##Sub
+## Sub
 - !ses sub <event> [targetUId] [targetNickname]
 
 Lets you subscribe to an event. 
@@ -36,7 +36,7 @@ If you want to subscribe to all events of that type, you can provide ALL as the 
 You can use the nickname only if the target is online.
 If you want to subscribe to track, you have to use a bot client as target.
 
-##Unsub
+## Unsub
 - !ses unsub <event> [targetUId] [targetNickname]
 
 Lets you unsubscribe from an event. 
@@ -47,7 +47,7 @@ If you want to subscribe to all events of that type, you can provide ALL as the 
 You can use the nickname only if the target is online 
 If you want to subscribe to track, you have to use a bot client as target. 
 
-##Users
+## Users
 - !ses users
  
 Shows all online users.
