@@ -1,6 +1,6 @@
 registerPlugin({
         name: 'Sinusbot-Event-Subsriber',
-        version: '0.4.1',
+        version: '0.5',
         description: '',
         author: 'Andreas Fahrecker <andreasfahrecker@gmail.com>',
         vars: [
@@ -41,6 +41,7 @@ registerPlugin({
             LEAVE: "LEAVE",
             AWAY: "AWAY",
             BACK: "BACK",
+            TRACK: "TRACK",
             ALL: "ALL"
         };
 
@@ -63,6 +64,9 @@ registerPlugin({
                     break;
                 case EventType.BACK:
                     description = "Messages you when a user removes himself as away.";
+                    break;
+                case EventType.TRACK:
+                    description = "Messages you when a new track starts.";
                     break;
                 case EventType.ALL:
                     description = "Messages you when any event happens.";
