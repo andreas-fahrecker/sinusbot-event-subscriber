@@ -466,6 +466,26 @@ registerPlugin({
             HelperFunctions.messageSubscribers(ev, EventType.BACK, `${ev.name()} got back.`);
         });
 
+        event.on('clientMute', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client muted his microphone.");
+            HelperFunctions.messageSubscribers(ev, EventType.MUTE, `${ev.name()} has muted his microphone.`);
+        });
+
+        event.on('clientUnmute', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client unmuted his microphone.");
+            HelperFunctions.messageSubscribers(ev, EventType.MUTE, `${ev.name()} has unmuted his microphone.`);
+        });
+
+        event.on('clientDeaf', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client muted his sound.");
+            HelperFunctions.messageSubscribers(ev, EventType.DEAF, `${ev.name()} has muted his sound.`);
+        });
+
+        event.on('clientUndeaf', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client unmuted his sound.");
+            HelperFunctions.messageSubscribers(ev, EventType.DEAF, `${ev.name()} has unmuted his sound.`);
+        });
+
         event.on('track', ev => {
             log(LOG_LEVEL.VERBOSE, "VERBOSE: A new track has started.");
             const botClient = backend.getBotClient();
