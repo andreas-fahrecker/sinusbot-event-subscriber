@@ -377,7 +377,7 @@ registerPlugin({
             const sesCommand = command.createCommandGroup("ses")
                 .help("This script allows users to subscribe to events.");
 
-            let eventListWithDescriptions;
+            let eventListWithDescriptions = "";
             Object.keys(EventType).forEach(value => eventListWithDescriptions += "[B]" + value.toLowerCase() + "[/B] - " + eventDescription(value) + "\n");
 
             sesCommand.addCommand("subs")
@@ -410,6 +410,7 @@ registerPlugin({
                 .manual("You have to either provide a target [B]nickname[/B] or [B]uid[/B].")
                 .manual("If you want to subscribe to all events of that type, you can provide [B]ALL[/B] as the targetNickname.")
                 .manual("You can use the nickname only if the target is online")
+                .manual("If you want to subscribe to track, you have to use a bot client as target.")
                 .manual(eventListWithDescriptions)
                 .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())))
                 .addArgument(args => args.string.setName("targetUId").match(/\S{27}=/).optional(undefined))
@@ -425,6 +426,7 @@ registerPlugin({
                 .manual("You have to either provide a target [B]nickname[/B] or [B]uid[/B].")
                 .manual("If you want to subscribe to all events of that type, you can provide [B]ALL[/B] as the targetNickname.")
                 .manual("You can use the nickname only if the target is online")
+                .manual("If you want to subscribe to track, you have to use a bot client as target.")
                 .manual(eventListWithDescriptions)
                 .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())))
                 .addArgument(args => args.string.setName("targetUId").match(/\S{27}=/).optional(undefined))
