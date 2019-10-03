@@ -1,6 +1,6 @@
 registerPlugin({
         name: 'Sinusbot-Event-Subsriber',
-        version: '0.4',
+        version: '0.4.1',
         description: '',
         author: 'Andreas Fahrecker <andreasfahrecker@gmail.com>',
         vars: [
@@ -43,6 +43,33 @@ registerPlugin({
             BACK: "BACK",
             ALL: "ALL"
         };
+
+        /**
+         * Returns a description for each event
+         * @param {EventType}eventType
+         * @returns {string|undefined} returns undefined if an invalid event type is provided
+         */
+        function eventDescription(eventType) {
+            let description = undefined;
+            switch (eventType) {
+                case EventType.JOIN:
+                    description = "Messages you when a user joins the server.";
+                    break;
+                case EventType.LEAVE:
+                    description = "Messages you when a user leaves the server.";
+                    break;
+                case EventType.AWAY:
+                    description = "Messages you when a user sets himself as away.";
+                    break;
+                case EventType.BACK:
+                    description = "Messages you when a user removes himself as away.";
+                    break;
+                case EventType.ALL:
+                    description = "Messages you when any event happens.";
+                    break;
+            }
+            return description;
+        }
 
         class SubscriptionStore {
             static storeKey() {
@@ -306,11 +333,15 @@ registerPlugin({
             const sesCommand = command.createCommandGroup("ses")
                 .help("This script allows users to subscribe to events.");
 
+            let eventListWithDescriptions;
+            Object.keys(EventType).forEach(value => eventListWithDescriptions += "[B]" + value.toLowerCase() + "[/B] - " + eventDescription(value) + "\n");
+
             sesCommand.addCommand("subs")
                 .help("Shows your subscriptions.")
                 .manual("Shows your subscriptions.")
                 .manual("You can filter for event types.")
                 .manual(`Possible events are: [B]${Object.keys(EventType).map(value => value.toLowerCase())}[/B]`)
+                .manual(eventListWithDescriptions)
                 .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())).optional(undefined))
                 .exec((client, args, reply) => {
                     let subsTxT = "Nick / Uid | EventType\n-------------------------\n";
@@ -335,6 +366,7 @@ registerPlugin({
                 .manual("You have to either provide a target [B]nickname[/B] or [B]uid[/B].")
                 .manual("If you want to subscribe to all events of that type, you can provide [B]ALL[/B] as the targetNickname.")
                 .manual("You can use the nickname only if the target is online")
+                .manual(eventListWithDescriptions)
                 .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())))
                 .addArgument(args => args.string.setName("targetUId").match(/\S{27}=/).optional(undefined))
                 .addArgument(args => args.string.setName("targetNickname").optional(undefined))
@@ -349,6 +381,7 @@ registerPlugin({
                 .manual("You have to either provide a target [B]nickname[/B] or [B]uid[/B].")
                 .manual("If you want to subscribe to all events of that type, you can provide [B]ALL[/B] as the targetNickname.")
                 .manual("You can use the nickname only if the target is online")
+                .manual(eventListWithDescriptions)
                 .addArgument(args => args.string.setName("event").whitelist(Object.keys(EventType).map(value => value.toLowerCase())))
                 .addArgument(args => args.string.setName("targetUId").match(/\S{27}=/).optional(undefined))
                 .addArgument(args => args.string.setName("targetNickname").optional(undefined))
