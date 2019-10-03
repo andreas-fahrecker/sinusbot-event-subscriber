@@ -457,6 +457,11 @@ registerPlugin({
             log(LOG_LEVEL.VERBOSE, "VERBOSE: A client got back.");
             HelperFunctions.messageSubscribers(ev, EventType.BACK, `${ev.name()} got back.`);
         });
+
+        event.on('track', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A new track has started.");
+            const botClient = backend.getBotClient();
+            HelperFunctions.messageSubscribers(botClient, EventType.TRACK, `${ev.title()} has started playing on ${botClient.name()}`)
+        });
     }
-)
-;
+);
