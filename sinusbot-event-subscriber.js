@@ -1,6 +1,6 @@
 registerPlugin({
         name: 'Sinusbot-Event-Subsriber',
-        version: '0.4.1',
+        version: '0.5',
         description: '',
         author: 'Andreas Fahrecker <andreasfahrecker@gmail.com>',
         vars: [
@@ -10,10 +10,15 @@ registerPlugin({
                 type: "select",
                 options: ["ERROR", "WARNING", "INFO", "VERBOSE"],
                 default: "2"
+            },
+            {
+                name: "BOT_SERVER_GROUPS",
+                title: "Bot Server Group Ids",
+                type: "strings"
             }
         ]
     },
-    function (_, {DEBUG_LEVEL}, {version}) {
+    function (_, {DEBUG_LEVEL, BOT_SERVER_GROUPS}, {version}) {
         const engine = require('engine');
         const store = require('store');
         const backend = require('backend');
@@ -41,6 +46,9 @@ registerPlugin({
             LEAVE: "LEAVE",
             AWAY: "AWAY",
             BACK: "BACK",
+            MUTE: "MUTE",
+            DEAF: "DEAF",
+            TRACK: "TRACK",
             ALL: "ALL"
         };
 
@@ -63,6 +71,15 @@ registerPlugin({
                     break;
                 case EventType.BACK:
                     description = "Messages you when a user removes himself as away.";
+                    break;
+                case EventType.MUTE:
+                    description = "Messages you when a user mutes or unmutes the microphone.";
+                    break;
+                case EventType.DEAF:
+                    description = "Messages you when a user mutes or unmutes his sound.";
+                    break;
+                case EventType.TRACK:
+                    description = "Messages you when a new track starts.";
                     break;
                 case EventType.ALL:
                     description = "Messages you when any event happens.";
@@ -266,6 +283,23 @@ registerPlugin({
                 return user.length > 0 ? user[0].name() : undefined;
             },
             /**
+             * Returns if a uid belongs to a bot client it the bot client is online
+             * @param {string}uid
+             * @returns {boolean}
+             */
+            uidIsBotClient: (uid) => {
+                const user = backend.getClientByUID(uid);
+                if (user != null) {
+                    let serverGroups = user.getServerGroups();
+                    serverGroups = serverGroups.filter(value => BOT_SERVER_GROUPS.includes(value.id()));
+                    if (serverGroups.length > 0) {
+                        return true;
+                    }
+                } else {
+                    return false;
+                }
+            },
+            /**
              * Add or Removes a subscription from the storage and replies to the client
              * @param client
              * @param args
@@ -274,6 +308,7 @@ registerPlugin({
              */
             addOrRemoveSubscription: (client, args, reply, sub) => {
                 let uid, nickname;
+                let commandPossible = false;
                 if (args.targetUId !== undefined && args.targetUId !== "" && args.targetNickname !== undefined && args.targetNickname !== "") {
                     reply("You should provide a targetNickname or a targetUId.");
                     reply("You can use a Nickname when your target is online or the uid if your target is offline.");
@@ -281,12 +316,21 @@ registerPlugin({
                 if ((args.targetUId === undefined || args.targetUId === "") && args.targetNickname !== undefined && args.targetNickname !== "") {
                     uid = args.targetNickname !== Subscription.allUId() ? HelperFunctions.nicknameToUId(args.targetNickname) : Subscription.allUId();
                     nickname = args.targetNickname;
+                    if (args.event.toUpperCase() === EventType.TRACK) {
+                        commandPossible = HelperFunctions.uidIsBotClient(uid);
+                    }
+                    commandPossible = true;
                 }
                 if (args.targetUId !== undefined && args.targetUId !== "" && (args.targetNickname === undefined || args.targetNickname === "")) {
                     uid = args.targetUId;
                     nickname = HelperFunctions.uidToNickname(uid);
+                    commandPossible = true;
                 }
-                if (uid !== undefined) {
+                //If Event is Track check if target is bot
+                if (commandPossible && args.event.toUpperCase() === EventType.TRACK) {
+                    commandPossible = HelperFunctions.uidIsBotClient(uid);
+                }
+                if (uid !== undefined && commandPossible) {
                     try {
                         let subscription = new SubscriptionBuilder().setSubscriberUId(client.uid()).setEvent(args.event.toUpperCase()).setTargetUId(uid).build();
                         subscription = sub ? subscriptionStore.addSubscription(subscription) : subscriptionStore.deleteSubscription(subscription);
@@ -421,6 +465,31 @@ registerPlugin({
             log(LOG_LEVEL.VERBOSE, "VERBOSE: A client got back.");
             HelperFunctions.messageSubscribers(ev, EventType.BACK, `${ev.name()} got back.`);
         });
+
+        event.on('clientMute', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client muted his microphone.");
+            HelperFunctions.messageSubscribers(ev, EventType.MUTE, `${ev.name()} has muted his microphone.`);
+        });
+
+        event.on('clientUnmute', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client unmuted his microphone.");
+            HelperFunctions.messageSubscribers(ev, EventType.MUTE, `${ev.name()} has unmuted his microphone.`);
+        });
+
+        event.on('clientDeaf', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client muted his sound.");
+            HelperFunctions.messageSubscribers(ev, EventType.DEAF, `${ev.name()} has muted his sound.`);
+        });
+
+        event.on('clientUndeaf', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A client unmuted his sound.");
+            HelperFunctions.messageSubscribers(ev, EventType.DEAF, `${ev.name()} has unmuted his sound.`);
+        });
+
+        event.on('track', ev => {
+            log(LOG_LEVEL.VERBOSE, "VERBOSE: A new track has started.");
+            const botClient = backend.getBotClient();
+            HelperFunctions.messageSubscribers(botClient, EventType.TRACK, `${ev.title()} has started playing on ${botClient.name()}`)
+        });
     }
-)
-;
+);
