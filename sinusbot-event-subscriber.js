@@ -46,6 +46,8 @@ registerPlugin({
             LEAVE: "LEAVE",
             AWAY: "AWAY",
             BACK: "BACK",
+            MUTE: "MUTE",
+            DEAF: "DEAF",
             TRACK: "TRACK",
             ALL: "ALL"
         };
@@ -69,6 +71,12 @@ registerPlugin({
                     break;
                 case EventType.BACK:
                     description = "Messages you when a user removes himself as away.";
+                    break;
+                case EventType.MUTE:
+                    description = "Messages you when a user mutes or unmutes the microphone.";
+                    break;
+                case EventType.DEAF:
+                    description = "Messages you when a user mutes or unmutes his sound.";
                     break;
                 case EventType.TRACK:
                     description = "Messages you when a new track starts.";
